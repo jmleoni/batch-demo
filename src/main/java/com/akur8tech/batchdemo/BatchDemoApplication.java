@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Profile;
 public class BatchDemoApplication {
 
     public static void main(String[] args) {
-//        SpringApplication.run(BatchDemoApplication.class, args);
         final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.register(BatchDemoApplicationConfig.class);
         context.refresh();

@@ -1,5 +1,6 @@
 package com.akur8tech.batchdemo.tasklets;
 
+import com.akur8tech.batchdemo.BookRepository;
 import com.akur8tech.batchdemo.model.Book;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,14 +19,18 @@ import java.util.List;
 public class BooksProcessor implements Tasklet, StepExecutionListener {
     private final Logger logger = LoggerFactory.getLogger(BooksProcessor.class);
 
-    private List<Book> books;
-
     private HashMap<String, Integer> collectionCount;
+
+    private BookRepository bookRepository;
+
+    public BooksProcessor(BookRepository bookRepository) {
+        this.bookRepository = bookRepository;
+    }
 
     @Override
     public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext)
             throws Exception {
-        for (Book book : books) {
+        for (Book book : this.bookRepository.getBooks()) {
             collectionCount.put(
                     book.getItemCollection(),
                     collectionCount.getOrDefault(book.getItemCollection(), 0) + 1);
@@ -35,8 +40,6 @@ public class BooksProcessor implements Tasklet, StepExecutionListener {
 
     @Override
     public void beforeStep(StepExecution stepExecution) {
-        ExecutionContext executionContext = stepExecution.getJobExecution().getExecutionContext();
-        this.books = (List<Book>) executionContext.get("books");
         this.collectionCount = new HashMap<>();
         logger.debug("Books Processor initialized.");
     }

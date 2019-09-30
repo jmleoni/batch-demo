@@ -4,6 +4,7 @@ import com.akur8tech.batchdemo.tasklets.BooksProcessor;
 import com.akur8tech.batchdemo.tasklets.BooksReader;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.JobLauncher;
@@ -14,33 +15,46 @@ import org.springframework.batch.support.transaction.ResourcelessTransactionMana
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.cloud.aws.context.config.annotation.EnableContextCredentials;
-import org.springframework.cloud.aws.context.config.annotation.EnableContextRegion;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.cloud.aws.autoconfigure.context.ContextInstanceDataAutoConfiguration;
+import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.cloud.aws.context.config.annotation.EnableContextResourceLoader;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 
+@PropertySource(value = "application.properties")
 @Configuration
-@EnableAutoConfiguration
-// @EnableBatchProcessing
+@EnableAutoConfiguration(
+        exclude = {
+            DataSourceAutoConfiguration.class,
+            ContextStackAutoConfiguration.class,
+            ContextInstanceDataAutoConfiguration.class
+        })
+@EnableBatchProcessing
 @EnableContextResourceLoader
-@EnableContextCredentials(
-        accessKey = "***REMOVED***",
-        secretKey = "***REMOVED***")
-@EnableContextRegion(region = "eu-west-1")
 public class BatchDemoApplicationConfig {
+
+    @Autowired private ApplicationContext appContext;
 
     @Autowired private JobBuilderFactory jobs;
 
     @Autowired private StepBuilderFactory steps;
 
-    @Value("s3://demo-batch-data/library-collection-inventory.1000.csv")
-    private Resource inputS3Csv;
 
-    @Value("file:/Users/jean-marcleoni/Downloads/library-collection-inventory.1000.csv")
-    private Resource inputLocalCsv;
+    @Bean
+    public BookRepository bookRepository(){
+        return new BookRepository();
+    }
+
+
+    @Value("${ordered}")
+    private Boolean ordered;
+
+    @Value("${input.csv}")
+    private String inputCsv;
 
     @Bean
     public JobRepository jobRepository() throws Exception {
@@ -63,12 +77,12 @@ public class BatchDemoApplicationConfig {
 
     @Bean
     public BooksReader booksReader() {
-        return new BooksReader(this.inputLocalCsv);
+        return new BooksReader(appContext.getResource(this.inputCsv), bookRepository(), ordered);
     }
 
     @Bean
     public BooksProcessor booksProcessor() {
-        return new BooksProcessor();
+        return new BooksProcessor(bookRepository());
     }
 
     @Bean

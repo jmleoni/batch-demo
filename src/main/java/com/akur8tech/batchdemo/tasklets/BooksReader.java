@@ -1,5 +1,6 @@
 package com.akur8tech.batchdemo.tasklets;
 
+import com.akur8tech.batchdemo.BookRepository;
 import com.akur8tech.batchdemo.model.Book;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
@@ -15,23 +16,25 @@ import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.file.DefaultBufferedReaderFactory;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.core.io.Resource;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.List;
 
 public class BooksReader implements Tasklet, StepExecutionListener {
 
-    public BooksReader(Resource resource) {
+    public BooksReader(Resource resource, BookRepository bookRepository, Boolean ordered) {
         this.resource = resource;
+        this.bookRepository = bookRepository;
+        this.ordered = ordered;
     }
 
     private final Resource resource;
 
+    private final Boolean ordered;
+
     private final Logger logger = LoggerFactory.getLogger(BooksReader.class);
 
-    private List<Book> books;
+    private BookRepository bookRepository;
 
     private CsvToBean<Book> csvToBean;
 
@@ -48,6 +51,7 @@ public class BooksReader implements Tasklet, StepExecutionListener {
                                             resource, Charset.defaultCharset().name()))
                             .withType(Book.class)
                             .withMappingStrategy(hcnms)
+                            .withOrderedResults(this.ordered)
                             .build();
         } catch (IOException e) {
             logger.error("Books Reader not initialized.", e);
@@ -60,14 +64,13 @@ public class BooksReader implements Tasklet, StepExecutionListener {
     public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext)
             throws Exception {
         logger.debug("Launching mutliThreaded parsing with OpenCSV");
-        books = csvToBean.parse();
+        bookRepository.setBooks(csvToBean.parse());
         logger.debug("Books read!!!");
         return RepeatStatus.FINISHED;
     }
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
-        stepExecution.getJobExecution().getExecutionContext().put("books", this.books);
         logger.debug("Books Reader ended.");
         return ExitStatus.COMPLETED;
     }
